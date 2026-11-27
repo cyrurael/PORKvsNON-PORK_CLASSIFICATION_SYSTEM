@@ -69,15 +69,13 @@ with st.sidebar:
     st.divider()
     st.header("📈 Performance & Evaluation")
     
-    # Pre-computed / simulated metrics — update these with YOUR actual test results!
+    # Pre-computed metrics — UPDATE THESE WITH YOUR ACTUAL TEST RESULTS!
     st.subheader("Overall Metrics")
     
-    # ┌── YOU SHOULD UPDATE THESE VALUES WITH YOUR OWN TEST DATA ──
-    # Example values shown — replace with your actual results!
     overall_accuracy = 94.2
-    precision_scores = [93.5, 95.0]   # [Class 0, Class 1]
-    recall_scores    = [92.0, 96.0]   # [Class 0, Class 1]
-    f1_scores        = [92.7, 95.5]   # [Class 0, Class 1]
+    precision_scores = [93.5, 95.0]
+    recall_scores    = [92.0, 96.0]
+    f1_scores        = [92.7, 95.5]
     
     col1, col2 = st.columns(2)
     with col1:
@@ -90,7 +88,6 @@ with st.sidebar:
     st.divider()
     st.subheader("Per-Class Performance")
     
-    # Per-class table
     perf_data = {
         "Class": labels,
         "Precision (%)": [f"{p:.1f}" for p in precision_scores],
@@ -103,24 +100,18 @@ with st.sidebar:
     st.caption("ℹ️ Update these values with your actual test dataset results")
 
 # ───────────────────────────
-# Main Area: Confusion Matrix Visualization
+# Confusion Matrix
 # ───────────────────────────
 st.subheader("📉 Confusion Matrix")
 st.caption("How well the model classifies each category")
 
-# ┌── REPLACE THESE WITH YOUR ACTUAL TEST RESULTS ──
-# Format: [[True Negative, False Positive],
-#          [False Negative, True Positive]]
-# Example values — update with your counts!
 confusion_matrix = np.array([
     [46, 3],   # Non-Pork: 46 correct, 3 misclassified as Pork
     [2, 49]    # Pork: 49 correct, 2 misclassified as Non-Pork
 ])
 
-# Normalize for color intensity
 cm_normalized = confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True)
 
-# Draw confusion matrix manually
 fig_cm = """
 <style>
 .cm-table { border-collapse: collapse; width: 100%; font-family: sans-serif; }
@@ -175,9 +166,69 @@ st.info("""
 st.divider()
 
 # ───────────────────────────
-# Image Upload & Prediction Section
+# HELPER: Prediction Function (reusable)
 # ───────────────────────────
-st.subheader("🔍 Test the Model")
+def predict_image(image):
+    """Run model prediction on a PIL Image"""
+    start_time = time.time()
+    
+    img = image.resize((WIDTH, HEIGHT))
+    img_array = np.array(img, dtype=np.float32)
+    img_array = np.expand_dims(img_array, axis=0)
+    img_array = img_array / 255.0
+    
+    interpreter.set_tensor(input_details[0]['index'], img_array)
+    interpreter.invoke()
+    predictions = interpreter.get_tensor(output_details[0]['index'])[0]
+    
+    inference_time = (time.time() - start_time) * 1000
+    return predictions, inference_time
+
+# ───────────────────────────
+# 🆕 SECTION 1: Sample Test Image (Built-in Demo)
+# ───────────────────────────
+st.subheader("🧪 Demo: Sample Test Image")
+st.info("💡 Upload a file named `sample_test.jpg` to your GitHub repo root to use this demo section")
+
+SAMPLE_IMAGE_PATH = os.path.join(BASE_DIR, "sample_test.jpg")
+
+if os.path.exists(SAMPLE_IMAGE_PATH):
+    sample_img = Image.open(SAMPLE_IMAGE_PATH).convert("RGB")
+    
+    col_demo1, col_demo2 = st.columns([1, 1])
+    
+    with col_demo1:
+        st.image(sample_img, caption="🖼️ Sample Test Image", use_column_width=True)
+    
+    with col_demo2:
+        if st.button("🔄 Run Prediction on Sample Image", type="primary"):
+            with st.spinner("Analyzing..."):
+                predictions, inf_time = predict_image(sample_img)
+                
+                pred_idx = int(np.argmax(predictions))
+                pred_label = labels[pred_idx]
+                confidence_val = float(predictions[pred_idx]) * 100
+                
+                st.success(f"🎯 **RESULT: {pred_label.upper()}** ({confidence_val:.2f}% confidence)")
+                st.caption(f"⚡ Inference time: {inf_time:.1f} ms")
+                
+                st.subheader("📊 Confidence Scores")
+                chart_data = {"Class": labels, "Confidence (%)": [float(p)*100 for p in predictions]}
+                st.bar_chart(chart_data, x="Class", y="Confidence (%)", color="#ff4b5c")
+                
+                for i, label in enumerate(labels):
+                    conf = float(predictions[i]) * 100
+                    st.write(f"**{label}**: {conf:.2f}%")
+                    st.progress(float(predictions[i]))
+else:
+    st.warning("⚠️ Sample image not found — add `sample_test.jpg` to your GitHub repo to enable the demo!")
+
+st.divider()
+
+# ───────────────────────────
+# 🆕 SECTION 2: Upload Your Own Image
+# ───────────────────────────
+st.subheader("🔍 Test With Your Own Image")
 
 uploaded_file = st.file_uploader("Upload an image...", type=["jpg", "jpeg", "png"])
 
@@ -185,48 +236,25 @@ if uploaded_file is not None:
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        # Display image
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="📷 Uploaded Image", use_column_width=True)
     
     with col2:
-        # Preprocess and time it
-        start_time = time.time()
-        
-        img = image.resize((WIDTH, HEIGHT))
-        img_array = np.array(img, dtype=np.float32)
-        img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array / 255.0
-        
-        # Run inference
-        interpreter.set_tensor(input_details[0]['index'], img_array)
-        interpreter.invoke()
-        predictions = interpreter.get_tensor(output_details[0]['index'])[0]
-        
-        inference_time = (time.time() - start_time) * 1000
-        
-        # Show predictions
-        st.subheader("📊 Results")
-        
-        results = []
-        for i, label in enumerate(labels):
-            confidence = float(predictions[i]) * 100
-            results.append({"Class": label, "Confidence (%)": round(confidence, 2)})
-            st.write(f"**{label}**: {confidence:.2f}%")
-            st.progress(float(predictions[i]))
-        
-        # Final verdict
-        predicted_idx = int(np.argmax(predictions))
-        predicted_label = labels[predicted_idx]
-        confidence_val = float(predictions[predicted_idx]) * 100
-        
-        st.success(f"🎯 **VERDICT: {predicted_label.upper()}** ({confidence_val:.2f}% confidence)")
-        st.caption(f"⚡ Inference time: {inference_time:.1f} ms")
-        
-        # Confidence bar chart
-        st.subheader("📈 Confidence Distribution")
-        chart_data = {
-            "Class": labels,
-            "Confidence (%)": [float(p)*100 for p in predictions]
-        }
-        st.bar_chart(chart_data, x="Class", y="Confidence (%)", color="#ff4b5c")
+        with st.spinner("Analyzing..."):
+            predictions, inf_time = predict_image(image)
+            
+            pred_idx = int(np.argmax(predictions))
+            pred_label = labels[pred_idx]
+            confidence_val = float(predictions[pred_idx]) * 100
+            
+            st.success(f"🎯 **VERDICT: {pred_label.upper()}** ({confidence_val:.2f}% confidence)")
+            st.caption(f"⚡ Inference time: {inf_time:.1f} ms")
+            
+            st.subheader("📊 Confidence Scores")
+            chart_data = {"Class": labels, "Confidence (%)": [float(p)*100 for p in predictions]}
+            st.bar_chart(chart_data, x="Class", y="Confidence (%)", color="#ff4b5c")
+            
+            for i, label in enumerate(labels):
+                conf = float(predictions[i]) * 100
+                st.write(f"**{label}**: {conf:.2f}%")
+                st.progress(float(predictions[i]))
