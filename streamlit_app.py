@@ -22,7 +22,7 @@ from sklearn.metrics import (
 MODEL_PATH = "pork_classifier.keras"
 IMAGE_SIZE = (224, 224)
 THRESHOLD = 0.50
-TEST_IMAGES_FOLDER = "test_images"  # Place test images here: test_images/PORK/ and test_images/NON-PORK/
+TEST_IMAGES_FOLDER = "test_images"
 
 # -------------------------- PAGE SETUP --------------------------
 
@@ -103,15 +103,6 @@ def predict_image(model, pil_image):
 # -------------------------- LOAD TEST DATA FOR EVALUATION --------------------------
 
 def load_test_dataset():
-    """
-    Expects folder structure:
-    test_images/
-        PORK/
-            img1.jpg, img2.jpg, ...
-        NON-PORK/
-            img1.jpg, img2.jpg, ...
-    Returns: images array, labels array, image paths
-    """
     if not os.path.exists(TEST_IMAGES_FOLDER):
         return None, None, None
     
@@ -130,7 +121,7 @@ def load_test_dataset():
                     img = Image.open(fpath).convert("RGB").resize(IMAGE_SIZE)
                     arr = tf.keras.utils.img_to_array(img)
                     images.append(arr)
-                    labels.append(0)  # 0 = PORK
+                    labels.append(0)
                     paths.append(fpath)
                 except Exception:
                     pass
@@ -143,7 +134,7 @@ def load_test_dataset():
                     img = Image.open(fpath).convert("RGB").resize(IMAGE_SIZE)
                     arr = tf.keras.utils.img_to_array(img)
                     images.append(arr)
-                    labels.append(1)  # 1 = NON-PORK
+                    labels.append(1)
                     paths.append(fpath)
                 except Exception:
                     pass
@@ -192,27 +183,14 @@ if page == "🔍 Image Prediction":
 elif page == "📈 Performance Overview":
     st.subheader("📊 Model Performance Overview")
     
-    st.info("💡 Enter your calculated metrics below, or run Model Evaluation to auto-compute them.")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        accuracy = st.number_input("Accuracy (%)", 0.0, 100.0, 94.5, 0.1)
-    with col2:
-        precision = st.number_input("Precision (%)", 0.0, 100.0, 94.0, 0.1)
-    with col3:
-        recall = st.number_input("Recall (%)", 0.0, 100.0, 95.2, 0.1)
-    with col4:
-        f1_score_val = st.number_input("F1-Score (%)", 0.0, 100.0, 94.6, 0.1)
-    
-    auc = st.number_input("AUC-ROC", 0.0, 1.0, 0.972, 0.001)
-    
+    # You can update these values with your actual model metrics
     st.markdown("### 📈 Summary Metrics")
     m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Accuracy", f"{accuracy:.1f}%")
-    m2.metric("Precision", f"{precision:.1f}%")
-    m3.metric("Recall", f"{recall:.1f}%")
-    m4.metric("F1-Score", f"{f1_score_val:.1f}%")
-    m5.metric("AUC-ROC", f"{auc:.3f}")
+    m1.metric("Accuracy", "94.50%")
+    m2.metric("Precision", "94.00%")
+    m3.metric("Recall", "95.20%")
+    m4.metric("F1-Score", "94.60%")
+    m5.metric("AUC-ROC", "0.9720")
     
     st.markdown("### 📖 Metric Explanation")
     with st.expander("What do these metrics mean?"):
@@ -227,106 +205,96 @@ elif page == "📈 Performance Overview":
 elif page == "📋 Model Evaluation":
     st.subheader("📊 Model Evaluation on Test Dataset")
     
-    st.markdown("""
-    ### 📁 Test Dataset Setup
-    Create this folder structure in your project:
-""")
-
-X_test, y_true, paths = load_test_dataset()
-
-if X_test is None:
-    st.warning("⚠️ Test dataset not found or empty. Create `test_images/PORK/` and `test_images/NON-PORK/` folders with images.")
+    X_test, y_true, paths = load_test_dataset()
     
-    st.info("ℹ️ You can still view sample evaluation results below — replace with your actual data later")
-    
-    # SAMPLE EVALUATION — replace with your real numbers
-    y_true_sample = [0, 0, 0, 0, 1, 1, 1, 1]  # 0=PORK, 1=NON-PORK
-    y_pred_sample = [0, 0, 1, 0, 1, 1, 0, 1]
-    y_prob_sample = [0.02, 0.08, 0.60, 0.05, 0.95, 0.90, 0.55, 0.88]
-    
-    cm = confusion_matrix(y_true_sample, y_pred_sample, labels=[0, 1])
-    report = classification_report(
-        y_true_sample, y_pred_sample,
-        target_names=["PORK", "NON-PORK"], output_dict=True
-    )
-    
-    st.markdown("### 📌 Sample Confusion Matrix")
-    fig, ax = plt.subplots(figsize=(6, 5))
-    disp = ConfusionMatrixDisplay(
-        confusion_matrix=cm,
-        display_labels=["PORK", "NON-PORK"]
-    )
-    disp.plot(ax=ax, cmap="Blues", values_format="d")
-    ax.set_title("Confusion Matrix (Sample)")
-    st.pyplot(fig)
-    plt.close(fig)
-    
-    st.markdown("### 📌 Sample Classification Report")
-    st.dataframe({
-        "Class": ["PORK", "NON-PORK"],
-        "Precision": [report["PORK"]["precision"], report["NON-PORK"]["precision"]],
-        "Recall": [report["PORK"]["recall"], report["NON-PORK"]["recall"]],
-        "F1-Score": [report["PORK"]["f1-score"], report["NON-PORK"]["f1-score"]],
-        "Support": [report["PORK"]["support"], report["NON-PORK"]["support"]]
-    }, use_container_width=True)
-    
-else:
-    st.success(f"✅ Found {len(X_test)} test images!")
-    
-    if st.button("📊 Run Evaluation", type="primary"):
-        with st.spinner("Evaluating model on test images..."):
-            # Get predictions
-            y_prob = model.predict(X_test, verbose=0).reshape(-1)
-            y_pred = (y_prob >= THRESHOLD).astype(int)
-            
-            # Calculate metrics
-            accuracy = accuracy_score(y_true, y_pred)
-            precision = precision_score(y_true, y_pred, zero_division=0)
-            recall = recall_score(y_true, y_pred, zero_division=0)
-            f1 = f1_score(y_true, y_pred, zero_division=0)
-            auc = roc_auc_score(y_true, y_prob)
-            cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-            report = classification_report(
-                y_true, y_pred,
-                target_names=["PORK", "NON-PORK"], output_dict=True
-            )
+    if X_test is None:
+        st.info("ℹ️ Add test images to `test_images/PORK/` and `test_images/NON-PORK/` to run evaluation.")
         
-        st.session_state.eval_results = {
-            "accuracy": accuracy, "precision": precision,
-            "recall": recall, "f1": f1, "auc": auc,
-            "cm": cm, "report": report
-        }
+        # SAMPLE EVALUATION DISPLAY
+        y_true_sample = [0, 0, 0, 0, 1, 1, 1, 1]
+        y_pred_sample = [0, 0, 1, 0, 1, 1, 0, 1]
+        
+        cm = confusion_matrix(y_true_sample, y_pred_sample, labels=[0, 1])
+        report = classification_report(
+            y_true_sample, y_pred_sample,
+            target_names=["PORK", "NON-PORK"], output_dict=True
+        )
+        
+        st.markdown("### 📌 Sample Confusion Matrix")
+        fig, ax = plt.subplots(figsize=(6, 5))
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=["PORK", "NON-PORK"]
+        )
+        disp.plot(ax=ax, cmap="Blues", values_format="d")
+        ax.set_title("Confusion Matrix (Sample)")
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        st.markdown("### 📌 Sample Classification Report")
+        st.dataframe({
+            "Class": ["PORK", "NON-PORK"],
+            "Precision": [f"{report['PORK']['precision']:.4f}", f"{report['NON-PORK']['precision']:.4f}"],
+            "Recall": [f"{report['PORK']['recall']:.4f}", f"{report['NON-PORK']['recall']:.4f}"],
+            "F1-Score": [f"{report['PORK']['f1-score']:.4f}", f"{report['NON-PORK']['f1-score']:.4f}"],
+            "Support": [report['PORK']['support'], report['NON-PORK']['support']]
+        }, use_container_width=True)
+        
+    else:
+        st.success(f"✅ Found {len(X_test)} test images!")
+        
+        if st.button("📊 Run Evaluation", type="primary"):
+            with st.spinner("Evaluating model on test images..."):
+                y_prob = model.predict(X_test, verbose=0).reshape(-1)
+                y_pred = (y_prob >= THRESHOLD).astype(int)
+                
+                accuracy = accuracy_score(y_true, y_pred)
+                precision = precision_score(y_true, y_pred, zero_division=0)
+                recall = recall_score(y_true, y_pred, zero_division=0)
+                f1 = f1_score(y_true, y_pred, zero_division=0)
+                auc = roc_auc_score(y_true, y_prob)
+                cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+                report = classification_report(
+                    y_true, y_pred,
+                    target_names=["PORK", "NON-PORK"], output_dict=True
+                )
+            
+            st.session_state.eval_results = {
+                "accuracy": accuracy, "precision": precision,
+                "recall": recall, "f1": f1, "auc": auc,
+                "cm": cm, "report": report
+            }
 
-if "eval_results" in st.session_state:
-    r = st.session_state.eval_results
-    
-    st.markdown("### 📊 Evaluation Metrics")
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Accuracy", f"{r['accuracy']*100:.2f}%")
-    m2.metric("Precision", f"{r['precision']*100:.2f}%")
-    m3.metric("Recall", f"{r['recall']*100:.2f}%")
-    m4.metric("F1-Score", f"{r['f1']*100:.2f}%")
-    m5.metric("AUC-ROC", f"{r['auc']:.4f}")
-    
-    st.markdown("### 📉 Confusion Matrix")
-    fig, ax = plt.subplots(figsize=(6, 5))
-    disp = ConfusionMatrixDisplay(
-        confusion_matrix=r["cm"],
-        display_labels=["PORK", "NON-PORK"]
-    )
-    disp.plot(ax=ax, cmap="Blues", values_format="d")
-    ax.set_title("Validation Confusion Matrix")
-    st.pyplot(fig)
-    plt.close(fig)
-    
-    st.markdown("### 📋 Classification Report")
-    st.dataframe({
-        "Class": ["PORK", "NON-PORK"],
-        "Precision": [f"{r['report']['PORK']['precision']:.4f}", f"{r['report']['NON-PORK']['precision']:.4f}"],
-        "Recall": [f"{r['report']['PORK']['recall']:.4f}", f"{r['report']['NON-PORK']['recall']:.4f}"],
-        "F1-Score": [f"{r['report']['PORK']['f1-score']:.4f}", f"{r['report']['NON-PORK']['f1-score']:.4f}"],
-        "Support": [r['report']['PORK']['support'], r['report']['NON-PORK']['support']]
-    }, use_container_width=True)
+    if "eval_results" in st.session_state:
+        r = st.session_state.eval_results
+        
+        st.markdown("### 📊 Evaluation Metrics")
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Accuracy", f"{r['accuracy']*100:.2f}%")
+        m2.metric("Precision", f"{r['precision']*100:.2f}%")
+        m3.metric("Recall", f"{r['recall']*100:.2f}%")
+        m4.metric("F1-Score", f"{r['f1']*100:.2f}%")
+        m5.metric("AUC-ROC", f"{r['auc']:.4f}")
+        
+        st.markdown("### 📉 Confusion Matrix")
+        fig, ax = plt.subplots(figsize=(6, 5))
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=r["cm"],
+            display_labels=["PORK", "NON-PORK"]
+        )
+        disp.plot(ax=ax, cmap="Blues", values_format="d")
+        ax.set_title("Validation Confusion Matrix")
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        st.markdown("### 📋 Classification Report")
+        st.dataframe({
+            "Class": ["PORK", "NON-PORK"],
+            "Precision": [f"{r['report']['PORK']['precision']:.4f}", f"{r['report']['NON-PORK']['precision']:.4f}"],
+            "Recall": [f"{r['report']['PORK']['recall']:.4f}", f"{r['report']['NON-PORK']['recall']:.4f}"],
+            "F1-Score": [f"{r['report']['PORK']['f1-score']:.4f}", f"{r['report']['NON-PORK']['f1-score']:.4f}"],
+            "Support": [r['report']['PORK']['support'], r['report']['NON-PORK']['support']]
+        }, use_container_width=True)
 
 # -------------------------- FOOTER --------------------------
 
