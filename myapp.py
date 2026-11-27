@@ -10,7 +10,7 @@ st.title("🖼️ PORK vs NON-PORK CLASSIFICATION")
 # Load model and labels
 @st.cache_resource
 def load_model():
-    interpreter = tf.lite.Interpreter(model_path="model.tflite")
+    interpreter = tf.lite.Interpreter(model_path="model_unquant.tflite")
     interpreter.allocate_tensors()
     return interpreter
 
