@@ -1,0 +1,2 @@
+0 pork
+1 non-pork
